@@ -6,22 +6,15 @@
     <title>Webmap Test</title>
     <link rel="stylesheet" href="src/css/leaflet.css" />
     <script src="src/js/leaflet.js"></script>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65"
-      crossorigin="anonymous"
-    />
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
-      crossorigin="anonymous"
-    ></script>
     <script src="src/js/jquery.min.js" type="text/javascript"></script>
+    <link
+      rel="stylesheet" href="src/bootstrap-3.3.7/css/bootstrap.css"/>
+    <script src="src/bootstrap-3.3.7/js/bootstrap.js"></script>
     <link rel="stylesheet" href="src/js/L.Control.Sidebar.css">
     <script src="src/js/L.Control.Sidebar.js"></script>
     <link rel="stylesheet" href="src/js/easy-button.css">
     <script src="src/js/easy-button.js"></script>
+    <script src="src/js/leaflet-providers.js"></script>
 
     <style>
       body {
@@ -35,36 +28,73 @@
   <body>
     <div id="side-bar" class="col-md-3">
       <button id='btnLocate' class='btn btn-primary btn-block'>Locate</button>
-      <button id='btnPalacio' class='btn btn-primary btn-block'>ZoomToPalacio</button>
+      <button id='btnPalacio' class='btn btn-primary btn-block'>Zoom To Palacio</button>
+      <button id='btnCecut' class='btn btn-primary btn-block'>Zoom To CECUT Tijuana</button>
       <h4>Zoom Level: <span id='zoom-level'></span></h4>
       <h4>Map Center: <span id='map-center'></span></h4>
       <h4>Mouse Location: <span id='mouse-location'></span></h4>
     </div>
-    <div id="mapdiv" class="col-md-9"></div>
+    <div id="mapdiv" class="col-md-12"></div>
 
     <script>
       var map1;
       var lyrOSM;
+      var lyrTopo;
+      var lyrDark;
+      var lyrAtlas;
       var mrkCurrentLocation;
+      var mrkCecut;
       var popPalacio;
       var ctlEasybutton;
-      var ctlSidebar;
+      var ctlLayers;
+      var objBasemaps;
+      var objOverlays;
+      var plnWalkRoute;
+      var plyPHeroes;
+      var fgpRio1;
 
       $(document).ready(function () {
         map1 = L.map("mapdiv", {
           center: [32.50079, -116.932811],
           zoom: 12,
         });
-        lyrOSM = L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png");
+
+        lyrOSM = L.tileLayer.provider('OpenStreetMap.Mapnik');
+        lyrTopo = L.tileLayer.provider('OpenTopoMap');
+        lyrDark = L.tileLayer.provider('Thunderforest.TransportDark');
+        lyrAtlas = L.tileLayer.provider('Thunderforest.MobileAtlas');
         map1.addLayer(lyrOSM);
+
+        objBasemaps = {
+          'Open Street Maps': lyrOSM,
+          'Topography Map': lyrTopo,
+          'Dark Map': lyrDark,
+          'Atlas Map': lyrAtlas,
+        };
 
         popPalacio = L.popup();
         popPalacio.setLatLng([32.5326, -117.0188]);
         popPalacio.setContent("<h4> Palacio Municipal de Tijuana <h4>");
-        ctlEasybutton = L.easyButton('glyphicon glyphicon-log-in', function(){
-          ctlSidebar.show();
+
+        mrkCecut = L.marker([32.53048, -117.02345], {draggable: true});
+        mrkCecut.bindTooltip('Centro Cultural Tijuana');
+
+        plnWalkRoute = L.polyline([[32.52606, -117.02450], [32.52666, -117.02489], [32.53184, -117.02023], [32.53173, -117.01886], [32.53216, -117.01849]]);
+
+        plyPHeroes = L.polygon([[[[32.52326, -117.01920], [32.52901, -117.01366], [32.52840, -117.01160], [32.52435, -117.00684], [32.51845, -117.01203], [32.51906, -117.01311], [32.52170, -117.01624]], [[32.52371, -117.01550], [32.52556, -117.01385], [32.52470, -117.01251], [32.52451, -117.01244], [32.52294, -117.01387], [32.52295, -117.01405]]], [[32.51828, -117.00692], [32.51712, -117.00792], [32.51691, -117.00757], [32.51677, -117.00713], [32.51679, -117.00660], [32.51691, -117.00606], [32.51716, -117.00565], [32.51749, -117.00534], [32.51767, -117.00533], [32.51782, -117.00546], [32.51792, -117.00569], [32.51796, -117.00608], [32.51816, -117.00656]]]);
+
+        fgpRio1 = L.featureGroup([plnWalkRoute, plyPHeroes]).addTo(map1);
+
+        objOverlays = {
+          'Rio Vectors': fgpRio1
+        };
+
+        ctlLayers = L.control.layers(objBasemaps, objOverlays).addTo(map1);
+
+        ctlSidebar = L.control.sidebar('side-bar', {closeButton: false}).addTo(map1);
+        ctlEasybutton = L.easyButton('glyphicon glyphicon-resize-horizontal', function(){
+          ctlSidebar.toggle();
         }).addTo(map1);
-        ctlSidebar = L.control.sidebar('side-bar').addTo(map1);
 
         map1.on("click", function (e) {
           if (e.originalEvent.shiftKey) {
@@ -77,8 +107,9 @@
         map1.on("contextmenu", function (e) {
           var dateTime = new Date();
           L.marker(e.latlng)
-            .addTo(map1)
-            .bindPopup(e.latlng.toString() + dateTime);
+          .addTo(map1)
+          .bindPopup(e.latlng.toString() + dateTime);
+          console.log('['+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+']');
         });
 
         map1.on("keypress", function (e) {
@@ -115,6 +146,10 @@
           document.getElementById('mouse-location').innerHTML = LatLngToArrayString(e.latlng);
         });
 
+        mrkCecut.on('dragend', function(){
+          mrkCecut.setTooltipContent('Localizacion actual:'+mrkCecut.getLatLng().toString()+'<br>'+'Distancia al Cecut:'+mrkCecut.getLatLng().distanceTo([32.53048, -117.02345]).toFixed(0));
+        })
+
         $("#btnLocate").click(function () {
           map1.locate();
         });
@@ -122,11 +157,18 @@
         $("#btnPalacio").click(function () {
           map1.setView([32.5326, -117.0188], 17);
           map1.openPopup(popPalacio);
+          L.marker([32.5326, -117.0188]).addTo(map1);
         });
+        
+        $("#btnCecut").click(function () {
+          map1.setView([32.53048, -117.02345], 17);
+          mrkCecut.setLatLng([32.53048, -117.02345]);
+          mrkCecut.setTooltipContent('Centro Cultural Tijuana');
+        });
+
       });
 
       function LatLngToArrayString(ll) {
-        console.log(ll);
         return "[" + ll.lat.toFixed(5) + ", " + ll.lng.toFixed(5) + "]";
       }
     </script>
